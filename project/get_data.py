@@ -3,12 +3,12 @@ import redis
 import json
 import time 
 import csv
+# stats
+import os
 
 r = redis.Redis(host='localhost', port=6379, decode_responses=True)
 #print(r.ping()) 
 
-# stats
-import os
 
 BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
 STATS_DIR = os.path.join(BASE_DIR, "network_stats")
@@ -19,7 +19,6 @@ STATS_DIR = os.path.join(BASE_DIR, "network_stats")
 os.makedirs(STATS_DIR, exist_ok=True)
 STAT_CSV  = os.path.join(STATS_DIR, "stat.csv")      
 
-STAT_CSV = os.path.join(STATS_DIR, "stat.csv")
 
         
 HASH_KEY = "mac_table"
@@ -31,7 +30,7 @@ REJOIN_THRESHOLD = 3
 SWITCH = "g0_s1"
 DEFAULT_AGE = 300
 DEFAULT_SIZE = 10
-MAX_MAC_CAPACITY = 28
+MAX_MAC_CAPACITY = 10
 
 r.set("mac_aging_limit", DEFAULT_AGE)
 
