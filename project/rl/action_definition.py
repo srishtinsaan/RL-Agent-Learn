@@ -82,53 +82,9 @@ def action_decrease_aging(sw):
 
     return new_limit
 
-def calculate_importance(entry):
+def action_learn_mac():
+    pass
 
-    age = entry.get("age", 0)
-    seen_count = entry.get("seen_count", 1)
-
-    return seen_count + (age * 0.01)
-
-def action_rebalance_table(target_size=10):
-
-    current_entries = r.hlen(HASH_KEY)
-
-    if current_entries <= target_size:
-        print("[ACTION] REBALANCE — no cleanup needed")
-        return 0
-
-    remove_count = current_entries - target_size
-
-    entries = []
-
-    for mac, raw in r.hgetall(HASH_KEY).items():
-
-        try:
-            entry = json.loads(raw)
-        except:
-            continue
-
-        score = calculate_importance(entry)
-
-        entries.append((mac, score))
-
-    entries.sort(key=lambda x: x[1])
-
-    pipe = r.pipeline()
-    removed = 0
-
-    for mac, _ in entries[:remove_count]:
-
-        pipe.hdel(HASH_KEY, mac)
-        pipe.zrem(ZSET_KEY, mac)
-
-        removed += 1
-
-    pipe.execute()
-
-    print(f"[ACTION] REBALANCE — removed {removed} entries")
-
-    return removed
 
 def execute_action(sw, action_idx, flood_pressure):
 
@@ -141,7 +97,7 @@ def execute_action(sw, action_idx, flood_pressure):
     elif action_idx == 2:
         action_decrease_aging(sw)
     elif action_idx == 3:
-        action_rebalance_table()  
+        action_learn_mac()  
     else:
         print(f"[EXECUTE] Unknown action: {action_idx}")
 

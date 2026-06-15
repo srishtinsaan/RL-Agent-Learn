@@ -76,9 +76,6 @@ class LiveEnv:
         if action == 2 and state_info["mac_fill"] >= 0.95:
             action = 0  # evict instead
 
-        # Don't rebalance when table is nearly empty
-        if action == 3 and state_info["mac_fill"] < 0.20:
-            action = 1  # increase aging instead
 
         executed_action = action
 
