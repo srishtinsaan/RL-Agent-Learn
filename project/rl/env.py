@@ -114,7 +114,6 @@ class LiveEnv:
 
         )
 
-
         info = {
             "action_name":     ActionSpace.get_action_name(executed_action),
             "original_action": original_action,

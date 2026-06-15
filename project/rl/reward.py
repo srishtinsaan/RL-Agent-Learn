@@ -133,36 +133,3 @@ def get_reward(
 
     return reward, outcome, situation
 
-
-
-
-
-    # action_cost = {
-    #     0: 0.10,   # EVICT_ENTRY
-    #     1: 0.05,   # INCREASE_AGING
-    #     2: 0.05,   # DECREASE_AGING
-    #     3: 0.01    # REBALANCE
-    # }
-
-    # reward -= action_cost.get(action, 0)
-
-    # if new_fill >= 0.95:
-    #     situation = "CRITICAL"
-    #     reward -= 15
-
-    # elif new_fill >= 0.80:
-    #     situation = "PREVENTIVE"
-    #     reward += 3
-
-    # else:
-    #     situation = "NORMAL"
-
-
-    # if reward > 0:
-    #     outcome = "improved"
-    # elif reward < 0:
-    #     outcome = "degraded"
-    # else:
-    #     outcome = "neutral"
-
-    # return reward, outcome, situation
