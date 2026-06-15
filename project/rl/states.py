@@ -45,3 +45,6 @@ class LiveStateEncoder:
 
     def total_states(self):
         return self.bins ** 3
+    
+    def decode_state_index(self, state_idx):
+        return self.state_space[state_idx]
