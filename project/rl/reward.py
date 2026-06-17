@@ -9,26 +9,21 @@ def get_reward(
 ):
     reward = 0
 
+    
     # MAC FILL
     HIGH_FILL = 0.8
     CRITICAL_FILL = 0.95
 
     # FLOOD_P
-    HIGH_FLOOD = 0.5
+    HIGH_FLOOD = 0.05
 
     # AGE
 
     # stale age threshold conditions :
-    # timeout = 60 :: avg_age > 36
-    # timeout = 300 :: avg_age > 180
-    # timeout = 600 :: avg_age > 360
-    stale_age_threshold = 0.6 
+    stale_age_threshold = 0.15
 
     # fresh age threshold conditions :
-    # timeout = 60 :: avg_age > 12
-    # timeout = 300 :: avg_age > 60
-    # timeout = 600 :: avg_age > 120
-    fresh_age_threshold = 0.2  
+    fresh_age_threshold = 0.01
 
     fill_gain = old_fill - new_fill
     flood_gain = old_flood - new_flood
@@ -38,22 +33,13 @@ def get_reward(
 # ------- 
     if action == "LEARN_MAC":
 
-        # reward
-        if old_flood > HIGH_FLOOD:
-            if old_fill < CRITICAL_FILL:
-                reward += 8   # good opportunity to learn safely
-            else:
-                reward += 5   
-
-        if 0.3 < old_age < 0.7:
-            reward += 4
-
         # penalty
-        elif old_fill > CRITICAL_FILL:
-            reward -= 8
+        if old_fill > CRITICAL_FILL:
+            reward -= 5
+        if old_flood > HIGH_FLOOD:
+            reward -= 5
 
-        if old_flood == 0 and old_fill < 0.5 and old_age < fresh_age_threshold:
-            reward -= 6
+        
             
 #----------------
     if action == "EVICT_ENTRY":
@@ -81,38 +67,34 @@ def get_reward(
             else:
                 reward += 5
 
-        # penalty
-        elif old_flood == 0 and old_fill < 0.5:
+        # penalty (separate ifs)
+        if old_flood == 0 and old_fill < 0.5:
             reward -= 5
-        elif old_age < fresh_age_threshold:
+        if old_age < fresh_age_threshold:
             reward -= 3
 
-
-# -------------
-
-
+# -----------
     if action == "DECREASE_AGING":
 
         # reward
-        if old_fill < 0.5 and old_flood == 0:
+        if old_fill < HIGH_FILL and old_flood == 0:
             if old_age > stale_age_threshold:
                 reward += 7
             else:
                 reward += 5
 
-        # penalty
-        elif old_fill > HIGH_FILL:
+        # penalty (separate ifs)
+        if old_fill > CRITICAL_FILL:
             reward -= 7
-        elif old_flood > HIGH_FLOOD:
+        if old_flood > HIGH_FLOOD:
             reward -= 5
 
 
-# --------- 
 
     reward += (
-        50 * flood_gain +
-        10 * fill_gain +   
-        5 * age_gain
+        20 * flood_gain +
+        5 * fill_gain +   
+        2 * age_gain
     )
 
     # situation : for logging

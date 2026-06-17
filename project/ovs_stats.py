@@ -7,15 +7,17 @@ SWITCH = "g0_s1"
 MAX_MAC_CAPACITY = 10
 DEFAULT_AGE = 300
 
+
 CSV_FILE = "without_rl_stats.csv"
 
-with open(CSV_FILE, "w", newline="") as f:
-    writer = csv.writer(f)
-    writer.writerow([
-        "mac_fill",
-        "flood_pressure",
-        "avg_age",
-    ])
+if not os.path.exists(CSV_FILE):
+    with open(CSV_FILE, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "mac_fill",
+            "age_score",
+            "flood_pressure"
+        ])
 
 
 def write_stats(metrics):
@@ -24,8 +26,8 @@ def write_stats(metrics):
 
         writer.writerow([
             metrics["mac_fill"],
-            metrics["flood_pressure"],
-            metrics["avg_age"]
+            metrics["age_score"],
+            metrics["flood_pressure"]
         ])
 
 
@@ -90,45 +92,23 @@ def calculate_metrics(mac_table, max_entries=MAX_MAC_CAPACITY,
     # 1. MAC fill ratio
     mac_fill = round(total_macs / max_entries, 3) if max_entries else 0
 
-    # 2. avg age
+    # 2. Age score
     if total_macs > 0:
         ages = [entry["age"] for entry in mac_table.values()]
-        avg_age = round(sum(ages) / len(ages), 3)
+        age_score = round((sum(ages) / len(ages)) / default_time, 3)
     else:
-        avg_age = 0
+        age_score = 0
 
     # 3. Flood pressure
     flood_pressure = round(new_seen_mac / total_macs, 3) if total_macs > 0 else round(0, 3)
 
     return {
         "mac_fill": mac_fill,
-        "flood_pressure": flood_pressure,
-        "avg_age": avg_age
+        "age_score": age_score,
+        "flood_pressure": flood_pressure
     }
 
-def print_mac_table(mac_table, metrics):
-    print("\033c")  # clear screen
 
-    print(
-        f"\nMAC Fill: {metrics['mac_fill']:.3f} | "
-        f"Avg Age: {metrics['avg_age']:.3f} | "
-        f"Flood Pressure: {metrics['flood_pressure']:.3f}"
-    )
-
-    print("\n")
-    print(f"{'PORT':<8} {'MAC':<25} {'AGE':<8}")
-    print("-" * 45)
-
-    for entry in sorted(
-        mac_table.values(),
-        key=lambda x: x["age"],
-        reverse=True
-    ):
-        print(
-            f"{entry['port']:<8} "
-            f"{entry['mac']:<25} "
-            f"{entry['age']:<8}"
-        )
 
 previous_macs = set()
 episodes = 200
@@ -150,10 +130,6 @@ try:
 
             write_stats(metrics)
             #print(metrics)
-            print_mac_table(
-                mac_table,
-                metrics
-            )
 
             previous_macs = current_macs
 

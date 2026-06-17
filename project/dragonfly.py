@@ -113,3 +113,7 @@ def discover_switch_ports(net, switch_name):
     return {
         "uplink_ports": sorted(uplink_ports),
     }
+
+
+
+        

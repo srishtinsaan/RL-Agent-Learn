@@ -1,72 +1,313 @@
-import csv
-from collections import defaultdict
+import os
+import pandas as pd
+import matplotlib.pyplot as plt
 
-def load_csv(path):
-    with open(path, newline='') as f:
-        return list(csv.DictReader(f))
+RL_FILE = "project/final/with_rl.csv"
+BASE_FILE = "project/final/without_rl.csv"
 
-def avg(rows, key):
-    return sum(float(r[key]) for r in rows) / len(rows)
+OUTPUT_DIR = "project/results/eval"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-def aggregate_rl(step_log_path):
-    rows = load_csv(step_log_path)
 
-    episodes = defaultdict(list)
-    for row in rows:
-        episodes[row['Episode']].append(row)
+# ==========================
+# LOAD DATA
+# ==========================
 
-    aggregated = []
-    for ep, steps in episodes.items():
-        critical   = sum(1 for s in steps if s['Situation'] == 'CRITICAL')
-        preventive = sum(1 for s in steps if s['Situation'] == 'PREVENTIVE')
-        normal     = sum(1 for s in steps if s['Situation'] == 'NORMAL')
+rl = pd.read_csv(RL_FILE)
+base = pd.read_csv(BASE_FILE)
 
-        aggregated.append({
-            'Episode':          ep,
-            'Avg_Fill':         avg(steps, 'mac_fill'),
-            'Avg_Flood':        avg(steps, 'flood_pressure'),
-            'Avg_Age':          avg(steps, 'avg_age'),
-            'Critical_Steps':   critical,
-            'Preventive_Steps': preventive,
-            'Normal_Steps':     normal
-        })
+# Keep same number of rows
+rows = min(len(rl), len(base))
 
-    return aggregated
+rl = rl.head(rows)
+base = base.head(rows)
 
-def aggregate_baseline(episode_log_path):
-    return load_csv(episode_log_path)
+print(f"\nComparing {rows} rows\n")
 
-def compare():
-    rl_step_log      = 'project/results/logs/live_step_log.csv'
-    baseline_ep_log  = 'project/results/eval/baseline_episode_log.csv'
 
-    rl   = aggregate_rl(rl_step_log)
-    base = aggregate_baseline(baseline_ep_log)
+# ==========================
+# BASIC METRICS
+# ==========================
 
-    rl_avg_fill      = avg(rl,   'Avg_Fill')
-    rl_avg_flood     = avg(rl,   'Avg_Flood')
-    rl_avg_age       = avg(rl,   'Avg_Age')
-    rl_critical      = sum(int(r['Critical_Steps'])   for r in rl)
-    rl_preventive    = sum(int(r['Preventive_Steps']) for r in rl)
-    rl_normal        = sum(int(r['Normal_Steps'])     for r in rl)
+rl_fill = rl["mac_fill"].mean()
+base_fill = base["mac_fill"].mean()
 
-    base_avg_fill    = avg(base,  'Avg_Fill')
-    base_avg_flood   = avg(base,  'Avg_Flood')
-    base_avg_age     = avg(base,  'Avg_Age')
-    base_critical    = sum(int(r['Critical_Steps'])   for r in base)
-    base_preventive  = sum(int(r['Preventive_Steps']) for r in base)
-    base_normal      = sum(int(r['Normal_Steps'])     for r in base)
+rl_flood = rl["flood_pressure"].mean()
+base_flood = base["flood_pressure"].mean()
 
-    print("=" * 55)
-    print(f"{'Metric':<28} {'Baseline':>10} {'RL Agent':>10}")
-    print("=" * 55)
-    print(f"{'Avg MAC Fill':<28} {base_avg_fill:>10.4f} {rl_avg_fill:>10.4f}")
-    print(f"{'Avg Flood Pressure':<28} {base_avg_flood:>10.4f} {rl_avg_flood:>10.4f}")
-    print(f"{'Avg Age':<28} {base_avg_age:>10.4f} {rl_avg_age:>10.4f}")
-    print(f"{'Total Critical Steps':<28} {base_critical:>10} {rl_critical:>10}")
-    print(f"{'Total Preventive Steps':<28} {base_preventive:>10} {rl_preventive:>10}")
-    print(f"{'Total Normal Steps':<28} {base_normal:>10} {rl_normal:>10}")
-    print("=" * 55)
+rl_age = rl["avg_age"].mean()
+base_age = base["avg_age"].mean()
 
-if __name__ == '__main__':
-    compare()
+
+# ==========================
+# STATES
+# ==========================
+
+def count_states(df):
+
+    critical = (df["mac_fill"] >= 0.95).sum()
+
+    preventive = (
+        (df["mac_fill"] >= 0.80)
+        & (df["mac_fill"] < 0.95)
+    ).sum()
+
+    normal = (df["mac_fill"] < 0.80).sum()
+
+    return critical, preventive, normal
+
+
+base_critical, base_preventive, base_normal = count_states(base)
+
+rl_critical, rl_preventive, rl_normal = count_states(rl)
+
+
+# ==========================
+# IMPROVEMENTS
+# ==========================
+
+def pct_improvement(old, new):
+
+    if old == 0:
+        return 0
+
+    return ((old - new) / old) * 100
+
+
+flood_reduction = pct_improvement(
+    base_flood,
+    rl_flood
+)
+
+critical_reduction = pct_improvement(
+    base_critical,
+    rl_critical
+)
+
+normal_increase = (
+    ((rl_normal - base_normal) / base_normal) * 100
+    if base_normal > 0
+    else 0
+)
+
+fill_efficiency = (
+    ((abs(base_fill - 1.0) - abs(rl_fill - 1.0))
+     / abs(base_fill - 1.0))
+    * 100
+    if abs(base_fill - 1.0) > 0
+    else 0
+)
+
+base_stability = (
+    (1 - base_flood) * 50
+    + (1 - min(base_fill, 1)) * 25
+    + (1 - base_age) * 25
+)
+
+rl_stability = (
+    (1 - rl_flood) * 50
+    + (1 - min(rl_fill, 1)) * 25
+    + (1 - rl_age) * 25
+)
+
+stability_gain = (
+    ((rl_stability - base_stability)
+     / base_stability)
+    * 100
+    if base_stability != 0
+    else 0
+)
+
+
+# ==========================
+# PRINT REPORT
+# ==========================
+
+print("=" * 65)
+print("          RL NETWORK EVALUATION REPORT")
+print("=" * 65)
+
+print(f"{'Metric':30s} {'Baseline':>12s} {'RL':>12s}")
+print("-" * 65)
+
+print(f"{'Average MAC Fill':30s} {base_fill:12.4f} {rl_fill:12.4f}")
+print(f"{'Average Flood Pressure':30s} {base_flood:12.4f} {rl_flood:12.4f}")
+print(f"{'Average Age':30s} {base_age:12.4f} {rl_age:12.4f}")
+
+print("-" * 65)
+
+print(f"{'Critical States':30s} {base_critical:12d} {rl_critical:12d}")
+print(f"{'Preventive States':30s} {base_preventive:12d} {rl_preventive:12d}")
+print(f"{'Normal States':30s} {base_normal:12d} {rl_normal:12d}")
+
+print("-" * 65)
+
+print(f"Flood Reduction (%)            : {flood_reduction:.2f}%")
+print(f"Critical Reduction (%)         : {critical_reduction:.2f}%")
+print(f"Normal State Increase (%)      : {normal_increase:.2f}%")
+print(f"Fill Efficiency Improvement (%) : {fill_efficiency:.2f}%")
+print(f"Network Stability Gain (%)     : {stability_gain:.2f}%")
+
+print("=" * 65)
+
+
+# ==========================
+# CHART 1
+# AVG METRICS
+# ==========================
+
+metrics = [
+    "MAC Fill",
+    "Flood Pressure",
+    "Average Age"
+]
+
+base_values = [
+    base_fill,
+    base_flood,
+    base_age
+]
+
+rl_values = [
+    rl_fill,
+    rl_flood,
+    rl_age
+]
+
+x = range(len(metrics))
+width = 0.35
+
+plt.figure(figsize=(8, 5))
+
+plt.bar(
+    [i - width/2 for i in x],
+    base_values,
+    width,
+    label="Baseline"
+)
+
+plt.bar(
+    [i + width/2 for i in x],
+    rl_values,
+    width,
+    label="RL"
+)
+
+plt.xticks(x, metrics)
+plt.ylabel("Value")
+plt.title("Average Metrics Comparison")
+plt.legend()
+
+plt.tight_layout()
+
+plt.savefig(
+    os.path.join(
+        OUTPUT_DIR,
+        "avg_metrics_comparison.png"
+    )
+)
+
+plt.close()
+
+
+# ==========================
+# CHART 2
+# STATE DISTRIBUTION
+# ==========================
+
+states = [
+    "Critical",
+    "Preventive",
+    "Normal"
+]
+
+base_states = [
+    base_critical,
+    base_preventive,
+    base_normal
+]
+
+rl_states = [
+    rl_critical,
+    rl_preventive,
+    rl_normal
+]
+
+x = range(len(states))
+
+plt.figure(figsize=(8, 5))
+
+plt.bar(
+    [i - width/2 for i in x],
+    base_states,
+    width,
+    label="Baseline"
+)
+
+plt.bar(
+    [i + width/2 for i in x],
+    rl_states,
+    width,
+    label="RL"
+)
+
+plt.xticks(x, states)
+plt.ylabel("Count")
+plt.title("State Distribution")
+plt.legend()
+
+plt.tight_layout()
+
+plt.savefig(
+    os.path.join(
+        OUTPUT_DIR,
+        "state_distribution.png"
+    )
+)
+
+plt.close()
+
+
+# ==========================
+# CHART 3
+# IMPROVEMENTS
+# ==========================
+
+improvement_labels = [
+    "Flood\nReduction",
+    "Critical\nReduction",
+    "Normal\nIncrease",
+    "Stability\nGain"
+]
+
+improvement_values = [
+    flood_reduction,
+    critical_reduction,
+    normal_increase,
+    stability_gain
+]
+
+plt.figure(figsize=(8, 5))
+
+plt.bar(
+    improvement_labels,
+    improvement_values
+)
+
+plt.ylabel("Percentage (%)")
+plt.title("RL Improvement over Baseline")
+
+plt.tight_layout()
+
+plt.savefig(
+    os.path.join(
+        OUTPUT_DIR,
+        "improvement_summary.png"
+    )
+)
+
+plt.close()
+
+
+print("\nCharts saved in:")
+print(OUTPUT_DIR)

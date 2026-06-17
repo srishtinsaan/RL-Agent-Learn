@@ -1,0 +1,4 @@
+metric,without_rl_mean,with_rl_mean,improvement_%,without_rl_max,with_rl_max,without_rl_min,with_rl_min
+mac_fill,0.9846,0.8226,16.46,1.0,1.0,0.0,0.3
+flood_pressure,0.0567,0.0179,68.38,1.0,0.625,0.0,0.0
+avg_age,0.6371,0.0126,98.02,37.3,0.2762,0.0,0.0

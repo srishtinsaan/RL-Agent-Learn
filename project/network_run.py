@@ -4,9 +4,10 @@ import json
 
 setLogLevel('info')
 
-from project.dragonfly import topology, discover_switch_ports
+from project.dragonfly import topology
 # from mininet.cli import CLI #import during CLI testing
-from project.auto_traffic import keepalive, fdb_refresh_loop
+#from project.traffic import keepalive
+from project.auto_traffic import start_learning_phase
 import time
 import threading
 
@@ -15,25 +16,6 @@ net = None
 try:
     net = topology()
     net.start()
-    # for h in net.hosts:
-    #     print(h.name)
-
-    # get info about port
-    info = discover_switch_ports(net, "g0_s1")
-    
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    SAVE_PATH = os.path.join(BASE_DIR, "rl", "topology_info.json")
-
-    os.makedirs(os.path.dirname(SAVE_PATH), exist_ok=True)
-
-    with open(SAVE_PATH, "w") as f:
-        json.dump(info, f, indent=4)
- 
-    info = discover_switch_ports(net, "g0_s1")
-    uplink_ports = info["uplink_ports"]
-
-    print("\n===== PORT DISCOVERY =====")
-    print(f"Uplink Ports    : {uplink_ports}")
 
     print("\n[!] Configuring switches...")
 
@@ -48,17 +30,18 @@ try:
 
     #CLI(net) #testing purpose
 
-    # ── Start fdb refresh thread for g0_s1 ──
-    fbd_refresh_thread = threading.Thread(target=fdb_refresh_loop, 
-                                          args=('g0_s1', 1), 
-                                          daemon=True)
-    fbd_refresh_thread.start()
+    traffic_thread = threading.Thread(
+        target=start_learning_phase,
+        args=(net,),
+        daemon=True
+    )
 
+    traffic_thread.start()
     # ── Generate traffic Thread ──
-    ka_thread = threading.Thread(target=keepalive, 
-                                 args=(net,), 
-                                 daemon=True)
-    ka_thread.start()
+    # ka_thread = threading.Thread(target=keepalive, 
+    #                              args=(net,), 
+    #                              daemon=True)
+    # ka_thread.start()
 
     running = True
     try:

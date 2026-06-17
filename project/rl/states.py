@@ -1,5 +1,5 @@
 class LiveStateEncoder:
-    def __init__(self, bins=8):
+    def __init__(self, bins=5):
         self.bins = bins
         self.interval = 1.0 / self.bins # 0.125
 
