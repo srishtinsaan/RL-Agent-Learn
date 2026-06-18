@@ -26,8 +26,8 @@ def write_stats(metrics):
 
         writer.writerow([
             metrics["mac_fill"],
-            metrics["age_score"],
-            metrics["flood_pressure"]
+            metrics["flood_pressure"],
+            metrics["avg_age"]
         ])
 
 
@@ -104,7 +104,7 @@ def calculate_metrics(mac_table, max_entries=MAX_MAC_CAPACITY,
 
     return {
         "mac_fill": mac_fill,
-        "age_score": age_score,
+        "avg_age": age_score,
         "flood_pressure": flood_pressure
     }
 
