@@ -119,10 +119,10 @@ def get_reward(
 
 
     reward += (
-        20 * fill_reduction +
-        5 * flood_reduction +
+        5 * fill_reduction +
+        15 * flood_reduction +
         2 * age_reduction
-    )
+    ) 
 
 
 

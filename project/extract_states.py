@@ -157,6 +157,6 @@ if __name__ == "__main__":
     print("\nCreating comparison CSV files...\n")
 
     create_with_rl_csv()
-    create_without_rl_csv()
+    # create_without_rl_csv()
 
     print("\nDone!")

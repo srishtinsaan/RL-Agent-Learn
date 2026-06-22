@@ -36,16 +36,16 @@ def save_final_qtable(agent, encoder, path='project/results/qtable/final_q_table
             age_bin   =  state_idx % bins
 
             q = agent.get_q_values(state_idx)
-            best_action = ['EVICT', 'INC_AGE', 'DEC_AGE', 'LEARN_MAC'][int(q.index(max(q)))]
+            best_action = ['EVICT', 'INC_AGE', 'DEC_AGE', 'LEARN_MAC'][int(q.argmax())]
 
             writer.writerow([
                 state_idx,
                 mac_bin,
                 flood_bin,
                 age_bin,
-                encoder.get_bin_name(mac_bin),
-                encoder.get_bin_name(flood_bin),
-                encoder.get_bin_name(age_bin),
+                encoder.get_mac_bin_name(mac_bin),
+                encoder.get_normal_bin_name(flood_bin),
+                encoder.get_normal_bin_name(age_bin),
                 round(q[0], 4),
                 round(q[1], 4),
                 round(q[2], 4),
@@ -60,7 +60,7 @@ def run_live_training(switch='g0_s0', episodes=200, steps_per_ep=30):
     # steps = 30
     
     env     = LiveEnv(switch=switch)
-    encoder = LiveStateEncoder(bins=8)
+    encoder = LiveStateEncoder(bins=5)
     agent   = QAgent(states=encoder.total_states(), actions=4)
 
     log_path = 'project/results/logs/live_step_log.csv'

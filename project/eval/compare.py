@@ -58,6 +58,42 @@ def evaluate(folder_name):
     base_age = base["avg_age"].mean()
 
     # ==========================
+    # FAIR FLOOD COMPARISON
+    # (only compare flood_pressure while table is NOT
+    # over capacity for both — baseline's flood_pressure
+    # is artificially near 0 once it overflows and stops
+    # learning new MACs entirely, which is not "no flooding",
+    # it's "no longer measurable as churn")
+    # ==========================
+
+    rl_normal_rows = rl[rl["mac_fill"] < 1.0]
+    base_normal_rows = base[base["mac_fill"] < 1.0]
+
+    rl_flood_fair = (
+        rl_normal_rows["flood_pressure"].mean()
+        if len(rl_normal_rows) > 0
+        else float("nan")
+    )
+
+    base_flood_fair = (
+        base_normal_rows["flood_pressure"].mean()
+        if len(base_normal_rows) > 0
+        else float("nan")
+    )
+
+    base_overflow_pct = (
+        (1 - len(base_normal_rows) / rows) * 100
+        if rows > 0
+        else 0
+    )
+
+    rl_overflow_pct = (
+        (1 - len(rl_normal_rows) / rows) * 100
+        if rows > 0
+        else 0
+    )
+
+    # ==========================
     # STATES
     # ==========================
 
@@ -93,6 +129,12 @@ def evaluate(folder_name):
     flood_reduction = pct_improvement(
         base_flood,
         rl_flood
+    )
+
+    flood_reduction_fair = (
+        pct_improvement(base_flood_fair, rl_flood_fair)
+        if pd.notna(base_flood_fair) and pd.notna(rl_flood_fair)
+        else float("nan")
     )
 
     critical_reduction = pct_improvement(
@@ -139,7 +181,10 @@ def evaluate(folder_name):
     print("=" * 65)
 
     print(f"MAC Utilization Reduction : {fill_reduction:.2f}%")
-    print(f"Flood Reduction           : {flood_reduction:.2f}%")
+    print(f"Flood Reduction (raw)     : {flood_reduction:.2f}%")
+    print(f"Flood Reduction (fair)    : {flood_reduction_fair:.2f}%")
+    print(f"Baseline time over cap.   : {base_overflow_pct:.2f}%")
+    print(f"RL time over cap.         : {rl_overflow_pct:.2f}%")
     print(f"Critical Reduction        : {critical_reduction:.2f}%")
     print(f"Normal State Coverage     : {normal_coverage:.2f}%")
     print(f"Network Stability Gain    : {stability_gain:.2f}%")
@@ -197,6 +242,31 @@ def evaluate(folder_name):
         os.path.join(
             OUTPUT_DIR,
             "avg_metrics.png"
+        )
+    )
+
+    plt.close()
+
+    # ==========================
+    # CHART 1B - FAIR FLOOD COMPARISON
+    # ==========================
+
+    fair_labels = ["Baseline", "RL"]
+    fair_values = [base_flood_fair, rl_flood_fair]
+
+    plt.figure(figsize=(8, 5))
+
+    plt.bar(fair_labels, fair_values)
+
+    plt.ylabel("Flood Pressure (mean, mac_fill < 1.0 only)")
+    plt.title(f"{folder_name.upper()} Fair Flood Comparison")
+
+    plt.tight_layout()
+
+    plt.savefig(
+        os.path.join(
+            OUTPUT_DIR,
+            "fair_flood_comparison.png"
         )
     )
 
@@ -263,7 +333,7 @@ def evaluate(folder_name):
 
     labels = [
         "MAC\nReduction",
-        "Flood\nReduction",
+        "Flood\nReduction\n(fair)",
         "Critical\nReduction",
         "Normal\nCoverage",
         "Stability\nGain"
@@ -271,7 +341,7 @@ def evaluate(folder_name):
 
     values = [
         fill_reduction,
-        flood_reduction,
+        flood_reduction_fair,
         critical_reduction,
         normal_coverage,
         stability_gain
@@ -303,4 +373,4 @@ def evaluate(folder_name):
 # ===================================
 
 evaluate("learn")
-evaluate("rebalance")
+# evaluate("rebalance")

@@ -7,7 +7,7 @@ setLogLevel('info')
 from project.dragonfly import topology
 # from mininet.cli import CLI #import during CLI testing
 #from project.traffic import keepalive
-from project.auto_traffic import start_learning_phase
+from project.traffic import start_learning_phase
 import time
 import threading
 

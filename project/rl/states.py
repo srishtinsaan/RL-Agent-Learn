@@ -49,3 +49,12 @@ class LiveStateEncoder:
             start = i * self.interval
             end = 1.0 if i == self.bins - 1 else (i + 1) * self.interval
             print(f"Bucket {i} : {start:.2f} - {end:.2f}")
+    
+    def get_mac_bin_name(self, bin_index):
+        labels = ["< 0.5", "0.5 - 1.0", "1.0 - 1.5", "1.5 - 2.5", ">= 2.5"]
+        return labels[bin_index]
+
+    def get_normal_bin_name(self, bin_index):
+        start = bin_index * self.interval
+        end = 1.0 if bin_index == self.bins - 1 else (bin_index + 1) * self.interval
+        return f"{start:.2f} - {end:.2f}"
