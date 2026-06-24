@@ -16,10 +16,10 @@ def save_final_qtable(agent, encoder, path='project/results/qtable/final_q_table
         writer.writerow([
             'State_Index',
             'Mac_Bin',
-            'Flood_Bin',
+            'new_mac_bin',
             'Age_Bin',
             'Mac_Range',
-            'Flood_Range',
+            'New_MAC_Range',
             'Age_Range',
             'Q_EVICT',
             'Q_INC_AGE',
@@ -32,19 +32,19 @@ def save_final_qtable(agent, encoder, path='project/results/qtable/final_q_table
 
             # decode bucket tuple from flat index
             mac_bin   = state_idx // (bins * bins)
-            flood_bin = (state_idx % (bins * bins)) // bins
+            new_mac_bin = (state_idx % (bins * bins)) // bins
             age_bin   =  state_idx % bins
 
             q = agent.get_q_values(state_idx)
             best_action = ['EVICT', 'INC_AGE', 'DEC_AGE', 'LEARN_MAC'][int(q.argmax())]
 
-            writer.writerow([
+            writer.writerow([   
                 state_idx,
                 mac_bin,
-                flood_bin,
+                new_mac_bin,
                 age_bin,
                 encoder.get_mac_bin_name(mac_bin),
-                encoder.get_normal_bin_name(flood_bin),
+                encoder.get_normal_bin_name(new_mac_bin),
                 encoder.get_normal_bin_name(age_bin),
                 round(q[0], 4),
                 round(q[1], 4),
@@ -80,7 +80,7 @@ def run_live_training(switch='g0_s0', episodes=200, steps_per_ep=30):
 
             'mac_fill',
             'MAC_Count',
-            'flood_pressure',
+            'new_mac_rate',
             'avg_age',
 
             'Situation',
@@ -102,17 +102,6 @@ def run_live_training(switch='g0_s0', episodes=200, steps_per_ep=30):
             'Total_Ep_Reward',
             'Epsilon',
 
-            'Port_Acted',
-            'Evicted_MAC',
-
-            'Old_MAC_Fill',
-            'New_MAC_Fill',
-
-            'Old_Flood',
-            'New_Flood',
-
-            'Old_Age',
-            'New_Age'
             ])
     
     with open(qtable_path, 'w', newline='') as f:
@@ -142,7 +131,6 @@ def run_live_training(switch='g0_s0', episodes=200, steps_per_ep=30):
         for step in range(steps_per_ep):
             is_random, action             = agent.choose_action_with_flag(state_idx)
             
-            old_state_info = state_info.copy()
             next_state_info, reward, info = env.step(action)
             next_state_idx                = encoder.get_state_index(next_state_info)
             executed_action               = info["executed_action"]
@@ -164,7 +152,7 @@ def run_live_training(switch='g0_s0', episodes=200, steps_per_ep=30):
 
                     info['mac_fill'],
                     info['mac_count'],
-                    info['flood_pressure'],
+                    info['new_mac_rate'],
                     info['avg_age'],
 
                     info['situation'],
@@ -187,17 +175,6 @@ def run_live_training(switch='g0_s0', episodes=200, steps_per_ep=30):
                     round(total_reward, 4),
                     round(agent.epsilon, 4),
 
-                    info.get('port_acted', 'N/A'),
-                    info.get('evicted_mac', 'N/A'),
-
-                    old_state_info["mac_fill"],
-                    next_state_info["mac_fill"],
-
-                    old_state_info["flood_pressure"],
-                    next_state_info["flood_pressure"],
-
-                    old_state_info["avg_age"],
-                    next_state_info["avg_age"]
                 ])
 
 

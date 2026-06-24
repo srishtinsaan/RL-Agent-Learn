@@ -1,33 +1,165 @@
-#from mininet.topo import Topo
-#from mininet.net import Mininet
-#from mininet.node import Controller
-#import threading
-#import os
-#from mininet.log import setLogLevel
-
-import time
-import subprocess
 import random
+import time
 import threading
 
+stop_event = threading.Event()
+
+# PROFILES
+TRAFFIC_PROFILES = [
+
+    {
+        "name": "90_10",
+        "local_prob": 0.9,
+        "active_range": (4, 8)
+    },
+
+    {
+        "name": "70_30",
+        "local_prob": 0.7,
+        "active_range": (8, 12)
+    },
+
+    {
+        "name": "50_50",
+        "local_prob": 0.5,
+        "active_range": (12, 18)
+    },
+
+    {
+        "name": "uniform",
+        "local_prob": None,
+        "active_range": (4, 18)
+    },
+
+    {
+        "name": "heavy_tail",
+        "local_prob": 0.7,
+        "active_range": (8, 18)
+    }
+]
+
+
+
+# GROUP DETECTION
+def get_groups(net):
+
+    groups = {
+        0: [],
+        1: [],
+        2: []
+    }
+
+    for h in net.hosts:
+
+        if h.name.startswith("g0_"):
+            groups[0].append(h)
+
+        elif h.name.startswith("g1_"):
+            groups[1].append(h)
+
+        elif h.name.startswith("g2_"):
+            groups[2].append(h)
+
+    return groups
+
+
+# ACTIVE HOSTS
+def get_active_hosts(net, profile):
+
+    amin, amax = profile["active_range"]
+
+    count = random.randint(
+        amin,
+        min(amax, len(net.hosts))
+    )
+
+    return random.sample(net.hosts, count)
+
+
+# DESTINATION CHOICE
+def choose_destination(src, groups, local_prob):
+
+    src_group = None
+
+    for gid, hosts in groups.items():
+
+        if src in hosts:
+            src_group = gid
+            break
+
+    # TRUE UNIFORM
+    if local_prob is None:
+
+        candidates = [
+            h for h in sum(groups.values(), [])
+            if h != src
+        ]
+
+        return random.choice(candidates)
+
+    # LOCAL
+    if random.random() < local_prob:
+
+        candidates = [
+            h
+            for h in groups[src_group]
+            if h != src
+        ]
+
+    # REMOTE
+    else:
+
+        candidates = []
+
+        for gid, hosts in groups.items():
+
+            if gid != src_group:
+                candidates.extend(hosts)
+
+    return random.choice(candidates)
+
+
+# FLOW DURATION
+def get_duration(profile_name):
+
+    if profile_name == "heavy_tail":
+
+        return int(
+            min(
+                3600,
+                random.paretovariate(1.5) * 30
+            )
+        )
+
+    r = random.random()
+
+    # many short flows
+    if r < 0.80:
+        return random.randint(3, 15)
+
+    # some medium flows
+    elif r < 0.95:
+        return random.randint(10, 120)
+
+    # few long flows
+    else:
+        return random.randint(300, 1800)
+
+
+
+# BOOTSTRAP LEARNING
+
 def bootstrap_learning(net):
-    """
-    One-time startup traffic so switch learns some MACs.
-    """
-    all_hosts = net.hosts
 
-    print("[BOOTSTRAP] Initial MAC learning")
+    print("[BOOTSTRAP] Starting")
 
-    for host in all_hosts:
+    for src in net.hosts:
 
-        candidates = [h for h in all_hosts if h != host]
+        dst = random.choice(
+            [h for h in net.hosts if h != src]
+        )
 
-        if not candidates:
-            continue
-
-        dst = random.choice(candidates)
-
-        host.cmd(
+        src.cmd(
             f"ping -c 1 {dst.IP()} > /dev/null 2>&1"
         )
 
@@ -35,58 +167,56 @@ def bootstrap_learning(net):
 
     print("[BOOTSTRAP] Done")
 
-stop_event = threading.Event()
-def random_keepalive(net):
-    """
-    Very light refresh traffic.
-    Keeps some MAC entries alive.
-    """
 
-    all_hosts = [h for h in net.hosts if h.intf() is not None] 
 
-    count = random.randint(1, max(1, len(all_hosts) // 5) ) #Picks 1 to ~20% of hosts
+# KEEPALIVE
 
-    hosts = random.sample(all_hosts, min(count, len(all_hosts))) #Random subset of active senders.
+def keepalive_hosts(active_hosts, groups, profile):
 
-    for src in hosts:
+    refresh_count = max(
+        1,
+        len(active_hosts) // 3
+    )
 
-        candidates = [h for h in all_hosts if h != src]
-        if not candidates:
-            continue
-        dst = random.choice(candidates)
-        src.cmd(f"ping -c 1 {dst.IP()} > /dev/null 2>&1 &")
+    selected = random.sample(
+        active_hosts,
+        refresh_count
+    )
 
-    print(f"[KEEPALIVE] Refreshed {len(hosts)} hosts")
+    for src in selected:
 
-def start_user_session(net):
-    """
-    Simulate a temporary user activity session.
-    """
+        dst = choose_destination(
+            src,
+            groups,
+            profile["local_prob"]
+        )
 
-    all_hosts = net.hosts
+        src.cmd(
+            f"ping -c 1 {dst.IP()} "
+            f"> /dev/null 2>&1 &"
+        )
 
-    src = random.choice(all_hosts)
 
-    candidates = [h for h in all_hosts if h != src]
+# SESSION FLOW
+def start_session(active_hosts,
+                  groups,
+                  profile):
 
-    if not candidates:
-        return
+    src = random.choice(active_hosts)
 
-    dst = random.choice(candidates)
+    dst = choose_destination(
+        src,
+        groups,
+        profile["local_prob"]
+    )
 
-    duration = random.choice([
-        30,
-        60,
-        120,
-        180,
-        300
-    ])
+    duration = get_duration(
+        profile["name"]
+    )
 
-    interval = random.choice([
-        0.5,
-        1.0,
-        2.0
-    ])
+    interval = random.choice(
+        [0.5, 1.0, 2.0]
+    )
 
     src.cmd(
         f"timeout {duration} "
@@ -95,75 +225,136 @@ def start_user_session(net):
     )
 
     print(
-        f"[SESSION] "
+        f"[FLOW] "
         f"{src.name} -> {dst.name} "
-        f"for {duration}s"
+        f"({duration}s)"
     )
 
-def start_burst(net):
-    """
-    Simulate a busy period.
-    Multiple temporary flows.
-    """
 
-    all_hosts = net.hosts
 
-    print("[BURST] Starting burst")
+# BURST
+
+def start_burst(active_hosts,
+                groups,
+                profile):
 
     num_flows = random.randint(
-        max(2, len(all_hosts)//4),
-        max(3, len(all_hosts)//2)
+        max(2, len(active_hosts)//2),
+        len(active_hosts)
+    )
+
+    print(
+        f"[BURST] "
+        f"{num_flows} flows"
     )
 
     for _ in range(num_flows):
 
-        src = random.choice(all_hosts)
+        src = random.choice(active_hosts)
 
-        candidates = [
-            h for h in all_hosts
-            if h != src
-        ]
-
-        if not candidates:
-            continue
-
-        dst = random.choice(candidates)
-
-        duration = random.randint(
-            60,
-            180
+        dst = choose_destination(
+            src,
+            groups,
+            profile["local_prob"]
         )
 
-        src.cmd(f"timeout {duration} ping -i 0.5 {dst.IP()} > /dev/null 2>&1 &")
+        duration = get_duration(
+            profile["name"]
+        )
 
-    print(f"[BURST] {num_flows} flows started")
+        src.cmd(
+            f"timeout {duration} "
+            f"ping -i 0.5 {dst.IP()} "
+            f"> /dev/null 2>&1 &"
+        )
 
-def keepalive(net):
 
-    print("[TRAFFIC] Event-driven traffic engine started")
+
+# MAIN ENGINE
+
+def start_learning_phase(net):
+
+    bootstrap_learning(net)
+
+    groups = get_groups(net)
+
+    burst_interval = random.randint(
+        180,
+        300
+    )
 
     last_burst = time.time()
 
     while not stop_event.is_set():
 
-        try:
-            if random.random() < 0.4:
-                random_keepalive(net)
+        profile = random.choice(
+            TRAFFIC_PROFILES
+        )
 
-            if random.random() < 0.3:
-                start_user_session(net)
+        print(
+            f"\n[PROFILE] "
+            f"{profile['name']}"
+        )
 
-            burst_interval = random.randint(300, 600)
+        profile_start = time.time()
 
-            if time.time() - last_burst > burst_interval:
-                start_burst(net)
+        # Run each profile for 2 minutes
+        while (
+            time.time() - profile_start < 120
+            and not stop_event.is_set()
+        ):
+
+            active_hosts = get_active_hosts(
+                net,
+                profile
+            )
+
+            print(
+                f"[ACTIVE] "
+                f"{len(active_hosts)} hosts"
+            )
+
+            keepalive_hosts(
+                active_hosts,
+                groups,
+                profile
+            )
+
+            sessions = random.randint(
+                1,
+                max(2, len(active_hosts)//2)
+            )
+
+            for _ in range(sessions):
+
+                start_session(
+                    active_hosts,
+                    groups,
+                    profile
+                )
+
+            if (
+                time.time() - last_burst
+                > burst_interval
+            ):
+
+                start_burst(
+                    active_hosts,
+                    groups,
+                    profile
+                )
+
                 last_burst = time.time()
-        
-        except Exception as e:
-            if stop_event.is_set():
-                break               # ← silent exit on shutdown
-            print(f"[WARN] keepalive error: {e}")
 
-        time.sleep(10)
-    print("[TRAFFIC] Keepalive stopped cleanly")
-                
+                burst_interval = random.randint(
+                    180,
+                    300
+                )
+
+            time.sleep(10)
+
+    print("[TRAFFIC] Stopped")
+
+
+def stop_learning_phase():
+    stop_event.set()

@@ -16,7 +16,7 @@ if not os.path.exists(CSV_FILE):
         writer.writerow([
             "mac_fill",
             "age_score",
-            "flood_pressure"
+            "new_mac_rate"
         ])
 
 
@@ -26,7 +26,7 @@ def write_stats(metrics):
 
         writer.writerow([
             metrics["mac_fill"],
-            metrics["flood_pressure"],
+            metrics["new_mac_rate"],
             metrics["avg_age"]
         ])
 
@@ -99,13 +99,13 @@ def calculate_metrics(mac_table, max_entries=MAX_MAC_CAPACITY,
     else:
         age_score = 0
 
-    # 3. Flood pressure
-    flood_pressure = round(new_seen_mac / total_macs, 3) if total_macs > 0 else round(0, 3)
+    # 3. New MAC rate
+    new_mac_rate = round(new_seen_mac / total_macs, 3) if total_macs > 0 else round(0, 3)
 
     return {
         "mac_fill": mac_fill,
         "avg_age": age_score,
-        "flood_pressure": flood_pressure
+        "new_mac_rate": new_mac_rate
     }
 
 

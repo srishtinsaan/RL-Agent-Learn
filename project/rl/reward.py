@@ -1,8 +1,8 @@
 def get_reward(
     old_fill,
     new_fill,
-    old_flood,
-    new_flood,
+    old_mac_rate,
+    new_mac_rate,
     old_age,
     new_age,
     action
@@ -19,14 +19,14 @@ def get_reward(
 
 
     fill_reduction = old_fill - new_fill
-    flood_reduction = old_flood - new_flood
+    flood_reduction = old_mac_rate - new_mac_rate
     age_reduction = old_age - new_age
 
 
     if action == "LEARN_MAC":
 
         # flooding existed and reduced
-        if old_flood > HIGH_FLOOD:
+        if old_mac_rate > HIGH_FLOOD:
 
             if flood_reduction > 0:
                 reward += 8
@@ -72,7 +72,7 @@ def get_reward(
     elif action == "INCREASE_AGING":
 
         # useful when flooding exists
-        if old_flood > HIGH_FLOOD:
+        if old_mac_rate > HIGH_FLOOD:
 
             if flood_reduction > 0:
 
@@ -89,7 +89,7 @@ def get_reward(
             reward -= 3
 
         # no flood + empty table
-        if old_flood == 0 and old_fill < 0.5:
+        if old_mac_rate == 0 and old_fill < 0.5:
             reward -= 5
 
 
@@ -114,7 +114,7 @@ def get_reward(
             reward -= 7
 
         # bad when flooding already high
-        if old_flood > HIGH_FLOOD:
+        if old_mac_rate > HIGH_FLOOD:
             reward -= 5
 
 

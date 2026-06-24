@@ -159,7 +159,7 @@ def print_table():
     }
 
     fill = mac_fill()
-    fpressure = flood_pressure(mac_entries)
+    fpressure = new_mac_rate(mac_entries)
     agescore = get_ageScore()
 
     print(
@@ -200,7 +200,7 @@ def mac_fill():
     redis_count = r.hlen(HASH_KEY)
     return round(redis_count/MAX_MAC_CAPACITY, 4)
 
-def flood_pressure(new_entries, prev_entries=None):
+def new_mac_rate(new_entries, prev_entries=None):
     global previous_snapshot
 
     # previous snapshot (t-1)
@@ -234,7 +234,7 @@ def get_normalized_state(sw, prev_entries=None):
 
     mac_fill_val = mac_fill() # non-normalised
 
-    flood_val    = flood_pressure(mac_entries, prev_entries) #normalised
+    flood_val    = new_mac_rate(mac_entries, prev_entries) #normalised
 
     age_val      = get_ageScore() #normalised
 

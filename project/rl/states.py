@@ -11,7 +11,7 @@ class LiveStateEncoder:
                 return i
         return len(self.mac_edges)  # bucket 4
 
-    # Flood/Age Bucketing
+    # New MAC/Age Bucketing
     def normal_binning(self, value):
         bin_index = int(value / self.interval)
         return min(bin_index, self.bins - 1)
@@ -20,12 +20,12 @@ class LiveStateEncoder:
     def get_state_index(self, state_info):
 
         mac_bin = self.mac_binning(state_info["mac_fill"])
-        flood_bin = self.normal_binning(state_info["flood_pressure"])
+        new_mac_bin = self.normal_binning(state_info["new_mac_rate"])
         age_bin = self.normal_binning(state_info["avg_age"])
 
         state_index = (
             mac_bin * self.bins * self.bins
-            + flood_bin * self.bins
+            + new_mac_bin * self.bins
             + age_bin
         )
 
@@ -44,7 +44,7 @@ class LiveStateEncoder:
         print("Bucket 4 : >= 2.5")
 
     def show_normal_buckets(self):
-        print("\nFlood/Age Buckets:")
+        print("\nNew MAC/Age Buckets:")
         for i in range(self.bins):
             start = i * self.interval
             end = 1.0 if i == self.bins - 1 else (i + 1) * self.interval

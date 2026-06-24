@@ -56,7 +56,7 @@ def create_with_rl_csv():
 
     required_cols = [
         "mac_fill",
-        "flood_pressure",
+        "new_mac_rate",
         "avg_age"
     ]
 
@@ -106,7 +106,7 @@ def create_without_rl_csv():
 
     required_cols = [
         "mac_fill",
-        "flood_pressure",
+        "new_mac_rate",
         "avg_age"
     ]
 
