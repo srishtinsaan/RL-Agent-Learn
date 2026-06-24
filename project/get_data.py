@@ -165,7 +165,7 @@ def print_table():
     print(
             f"\nCurrent MAC Table, "
             f"Table Fill: {fill:.3f}, "
-            f"Flood Pressure: {fpressure:.3f}, "
+            f"New MAC Rate: {fpressure:.3f}, "
             f"Age Score: {agescore:.3f}, "
         )
     print(f"{'MAC':<25} {'PORT':<10} {'AGE':<10} {'seen_count':<10}")
@@ -213,13 +213,13 @@ def new_mac_rate(new_entries, prev_entries=None):
     if total == 0:
         return 0.0
 
-    flood = 0
+    new_mac = 0
 
     for mac in new_macs:
         if mac not in prev_macs:
-            flood += 1
+            new_mac += 1
 
-    return round(flood / total, 3)
+    return round(new_mac / total, 3)
 
 def normalize(value, max_value):
     if max_value == 0:
@@ -234,16 +234,16 @@ def get_normalized_state(sw, prev_entries=None):
 
     mac_fill_val = mac_fill() # non-normalised
 
-    flood_val    = new_mac_rate(mac_entries, prev_entries) #normalised
+    new_mac_rate_val    = new_mac_rate(mac_entries, prev_entries) #normalised
 
     age_val      = get_ageScore() #normalised
 
-    return mac_fill_val, flood_val, age_val, mac_entries 
+    return mac_fill_val, new_mac_rate_val, age_val, mac_entries 
 
 def init_csv():
     with open(STAT_CSV, 'w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow(['mac_fill', 'flood_p', 'avg_age'])
+        writer.writerow(['mac_fill', 'new_mac_rate', 'avg_age'])
 
 if __name__ == "__main__":
     init_csv() 
